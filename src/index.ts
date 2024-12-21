@@ -1,23 +1,37 @@
-import { fromHono } from "chanfana";
-import { Hono } from "hono";
-import { TaskCreate } from "./endpoints/taskCreate";
-import { TaskDelete } from "./endpoints/taskDelete";
-import { TaskFetch } from "./endpoints/taskFetch";
-import { TaskList } from "./endpoints/taskList";
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import auth from './handlers/auth'
+import recipe from './handlers/recipes'
+import { ApiError, errorHandler } from './middleware/errorHandler'
 
-// Start a Hono app
-const app = new Hono();
+const app = new Hono<{ Bindings: Env }>()
 
-// Setup OpenAPI registry
-const openapi = fromHono(app, {
-	docs_url: "/",
-});
+// Add CORS middleware
+app.use('/*', cors())
 
-// Register OpenAPI endpoints
-openapi.get("/api/tasks", TaskList);
-openapi.post("/api/tasks", TaskCreate);
-openapi.get("/api/tasks/:taskSlug", TaskFetch);
-openapi.delete("/api/tasks/:taskSlug", TaskDelete);
+// Add error handling
+app.onError(errorHandler)
 
-// Export the Hono app
-export default app;
+// Mount routes
+app.route('/api/auth', auth)
+app.route('/api/recipes', recipe)
+
+// Serve images from R2
+app.get('/images/:key', async (c) => {
+  const key = c.req.param('key')
+  const object = await c.env.groceree_r2.get(key)
+
+  if (!object) {
+    throw new ApiError(404, 'Image not found')
+  }
+
+  const headers = new Headers()
+  object.writeHttpMetadata(headers)
+  headers.set('etag', object.httpEtag)
+  
+  return new Response(object.body, {
+    headers,
+  })
+})
+
+export default app
