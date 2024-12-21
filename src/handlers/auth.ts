@@ -31,6 +31,8 @@ auth.post('/register', async (c) => {
         lastName: body.lastName,
         username: body.username,
         password: body.password, // In production, hash this!
+        imageUrl: "",
+        bio: "Hi, I'm new here!",
       })
       .returning({
         id: users.id,

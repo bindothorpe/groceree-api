@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import auth from './handlers/auth'
 import recipe from './handlers/recipes'
 import { ApiError, errorHandler } from './middleware/errorHandler'
+import user from 'handlers/users'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -15,6 +16,7 @@ app.onError(errorHandler)
 // Mount routes
 app.route('/api/auth', auth)
 app.route('/api/recipes', recipe)
+app.route('/api/users', user)
 
 // Serve images from R2
 app.get('/images/:key', async (c) => {

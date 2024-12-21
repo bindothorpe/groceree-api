@@ -14,8 +14,8 @@ export const users = sqliteTable('users', {
   lastName: text('last_name').notNull(),
   username: text('username').notNull().unique(),
   password: text('password').notNull(), // In production, ensure this is properly hashed
-  imageUrl: text('image_url'),
-  bio: text('bio').default(''),
+  imageUrl: text('image_url').notNull(), // Default to empty string
+  bio: text('bio').notNull(),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .default(sql`CURRENT_TIMESTAMP`)
