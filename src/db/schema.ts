@@ -45,7 +45,7 @@ export const ingredients = sqliteTable('ingredients', {
     .references(() => recipes.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   amount: real('amount').notNull(),
-  unit: text('unit').notNull(), // Will store the raw string value from MeasurementUnit
+  unit: text('unit').notNull(),
 })
 
 // Instructions table

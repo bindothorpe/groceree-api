@@ -17,14 +17,12 @@ const recipe = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 recipe.use('*', authMiddleware)
 
-// Create recipe
 recipe.post('/', async (c) => {
   const body = await c.req.json<CreateRecipeRequest>()
   const user = c.get('user')
   const db = drizzle(c.env.DB)
 
   try {
-    // Create recipe first
     const [newRecipe] = await db.insert(recipes)
       .values({
         name: body.name,
@@ -42,7 +40,6 @@ recipe.post('/', async (c) => {
         imageUrl: recipes.imageUrl
       })
 
-    // Add ingredients if any
     if (body.ingredients.length > 0) {
       await db.insert(ingredients)
         .values(body.ingredients.map(ing => ({
@@ -53,7 +50,6 @@ recipe.post('/', async (c) => {
         })))
     }
 
-    // Add instructions if any
     if (body.instructions.length > 0) {
       await db.insert(instructions)
         .values(body.instructions.map(inst => ({
@@ -208,13 +204,11 @@ recipe.post('/:id/image', async (c) => {
   const db = drizzle(c.env.DB)
 
   try {
-    // Check if recipe exists
     const recipe = await db.select().from(recipes).where(eq(recipes.id, id)).get()
     if (!recipe) {
       throw new ApiError(404, 'Recipe not found')
     }
 
-    // Validate request content type
     const contentType = c.req.header('content-type')
     if (!contentType?.includes('multipart/form-data')) {
       throw new ApiError(400, 'Content type must be multipart/form-data')
@@ -237,7 +231,6 @@ recipe.post('/:id/image', async (c) => {
       throw new ApiError(400, 'Invalid image format')
     }
 
-    // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif']
     if (!allowedTypes.includes(image.type)) {
       throw new ApiError(400, 'Invalid image type. Allowed types: JPG, PNG, GIF')
@@ -263,7 +256,7 @@ recipe.post('/:id/image', async (c) => {
       const [updatedRecipe] = await db
         .update(recipes)
         .set({ 
-          imageUrl: `/images/${key}`  // Remove the recipes.imageUrl.name reference
+          imageUrl: `/images/${key}`
         })
         .where(eq(recipes.id, id))
         .returning({
@@ -275,7 +268,6 @@ recipe.post('/:id/image', async (c) => {
         imageUrl: updatedRecipe.imageUrl 
       })
     } catch (error) {
-      // If database update fails, try to delete the uploaded image
       try {
         await c.env.groceree_r2.delete(key)
       } catch (deleteError) {
