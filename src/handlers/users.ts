@@ -123,7 +123,7 @@ user.post('/:username/image', async (c) => {
       }
   
       // Upload to R2
-      const key = `users/${username}-${Date.now()}`
+      const key = `images/users/${username}-${Date.now()}`
       await c.env.groceree_r2.put(key, image, {
         httpMetadata: {
           contentType: image.type,
@@ -139,9 +139,8 @@ user.post('/:username/image', async (c) => {
       .get()
   
       if (user?.imageUrl) {
-        const oldKey = user.imageUrl.replace('/images/', '')
         try {
-          await c.env.groceree_r2.delete(oldKey)
+          await c.env.groceree_r2.delete(user.imageUrl)
         } catch (error) {
           console.error('Failed to delete old image:', error)
         }
@@ -151,7 +150,7 @@ user.post('/:username/image', async (c) => {
       const [updatedUser] = await db
         .update(users)
         .set({
-          imageUrl: `/images/${key}`
+          imageUrl: `/${key}`
         })
         .where(eq(users.username, username))
         .returning({

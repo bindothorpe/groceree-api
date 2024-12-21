@@ -438,7 +438,7 @@ recipe.post('/:id/image', async (c) => {
       throw new ApiError(400, 'Image too large. Maximum size is 5MB')
     }
 
-    const key = `${id}-${Date.now()}`
+    const key = `images/recipes/${id}-${Date.now()}`
     try {
       await c.env.groceree_r2.put(key, image, {
         httpMetadata: {
@@ -454,7 +454,7 @@ recipe.post('/:id/image', async (c) => {
       const [updatedRecipe] = await db
         .update(recipes)
         .set({ 
-          imageUrl: `/images/${key}`
+          imageUrl: `/${key}`
         })
         .where(eq(recipes.id, id))
         .returning({
