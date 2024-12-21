@@ -15,8 +15,10 @@ interface Variables {
 
 const recipe = new Hono<{ Bindings: Env; Variables: Variables }>()
 
+// Require authentication for all routes
 recipe.use('*', authMiddleware)
 
+// Create a new recipe
 recipe.post('/', async (c) => {
   const body = await c.req.json<CreateRecipeRequest>()
   const user = c.get('user')
@@ -66,6 +68,8 @@ recipe.post('/', async (c) => {
   }
 })
 
+
+// Get all recipes
 recipe.get('/', async (c) => {
   const user = c.get('user')
   const search = c.req.query('search')
@@ -95,6 +99,7 @@ recipe.get('/', async (c) => {
   }
 })
 
+// Get single recipe
 recipe.get('/:id', async (c) => {
   const id = c.req.param('id')
   const user = c.get('user')
@@ -159,6 +164,86 @@ recipe.get('/:id', async (c) => {
   }
 })
 
+// Get user's favorite recipes by username
+recipe.get('/favorites/:username', async (c) => {
+  const username = c.req.param('username')
+  const db = drizzle(c.env.DB)
+
+  try {
+    const favoriteRecipes = await db
+      .select({
+        id: recipes.id,
+        name: recipes.name,
+        imageUrl: recipes.imageUrl,
+        duration: recipes.duration,
+        isFavorite: sql<boolean>`true`, // Since we're only getting favorites
+        author: {
+          id: users.id,
+          firstName: users.firstName,
+        }
+      })
+      .from(recipes)
+      .innerJoin(userFavorites, eq(recipes.id, userFavorites.recipeId))
+      .innerJoin(users, and(
+        eq(recipes.userId, users.id),
+        eq(users.username, username)
+      ))
+      .where(eq(userFavorites.userId, users.id))  // Use the joined user's ID
+      .all()
+
+    if (!favoriteRecipes || favoriteRecipes.length === 0) {
+      return c.json({ recipes: [] })
+    }
+
+    return c.json({ recipes: favoriteRecipes })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Failed to fetch favorite recipes', error as Error)
+  }
+})
+
+// Get all recipes from a specific user
+recipe.get('/user/:username', async (c) => {
+  const username = c.req.param('username')
+  const currentUser = c.get('user') // Get current authenticated user for isFavorite check
+  const db = drizzle(c.env.DB)
+
+  try {
+    const userRecipes = await db
+      .select({
+        id: recipes.id,
+        name: recipes.name,
+        imageUrl: recipes.imageUrl,
+        duration: recipes.duration,
+        author: {
+          id: users.id,
+          firstName: users.firstName,
+        },
+        isFavorite: sql<boolean>`${userFavorites.userId} IS NOT NULL`
+      })
+      .from(recipes)
+      .innerJoin(users, and(
+        eq(recipes.userId, users.id),
+        eq(users.username, username)
+      ))
+      .leftJoin(userFavorites, and(
+        eq(recipes.id, userFavorites.recipeId),
+        eq(userFavorites.userId, currentUser.id)
+      ))
+      .all()
+
+    if (!userRecipes || userRecipes.length === 0) {
+      return c.json({ recipes: [] })
+    }
+
+    return c.json({ recipes: userRecipes })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Failed to fetch user recipes', error as Error)
+  }
+})
+
+// Toggle favorite
 recipe.post('/:id/favorite', async (c) => {
   const id = c.req.param('id')
   const user = c.get('user')
@@ -199,6 +284,119 @@ recipe.post('/:id/favorite', async (c) => {
   }
 })
 
+// Update recipe
+recipe.put('/:id', async (c) => {
+  const id = c.req.param('id')
+  const user = c.get('user')
+  const body = await c.req.json<CreateRecipeRequest>()
+  const db = drizzle(c.env.DB)
+
+  try {
+    // Check if recipe exists and user is the owner
+    const existingRecipe = await db.select()
+      .from(recipes)
+      .where(and(
+        eq(recipes.id, id),
+        eq(recipes.userId, user.id)
+      ))
+      .get()
+
+    if (!existingRecipe) {
+      throw new ApiError(404, 'Recipe not found or you do not have permission to update it')
+    }
+
+    // Update recipe
+    const [updatedRecipe] = await db.update(recipes)
+      .set({
+        name: body.name,
+        duration: body.duration,
+        servings: body.servings,
+      })
+      .where(eq(recipes.id, id))
+      .returning()
+
+    // Delete existing ingredients
+    await db.delete(ingredients)
+      .where(eq(ingredients.recipeId, id))
+
+    // Add new ingredients
+    if (body.ingredients.length > 0) {
+      await db.insert(ingredients)
+        .values(body.ingredients.map(ing => ({
+          recipeId: id,
+          name: ing.name,
+          amount: ing.amount,
+          unit: ing.unit,
+        })))
+    }
+
+    // Delete existing instructions
+    await db.delete(instructions)
+      .where(eq(instructions.recipeId, id))
+
+    // Add new instructions
+    if (body.instructions.length > 0) {
+      await db.insert(instructions)
+        .values(body.instructions.map(inst => ({
+          recipeId: id,
+          step: inst.step,
+          instruction: inst.instruction,
+        })))
+    }
+
+    return c.json({ 
+      success: true,
+      recipe: updatedRecipe
+    })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Failed to update recipe', error as Error)
+  }
+})
+
+// Delete recipe
+recipe.delete('/:id', async (c) => {
+  const id = c.req.param('id')
+  const user = c.get('user')
+  const db = drizzle(c.env.DB)
+
+  try {
+    // Check if recipe exists and user is the owner
+    const recipeToDelete = await db.select()
+      .from(recipes)
+      .where(and(
+        eq(recipes.id, id),
+        eq(recipes.userId, user.id)
+      ))
+      .get()
+
+    if (!recipeToDelete) {
+      throw new ApiError(404, 'Recipe not found or you do not have permission to delete it')
+    }
+
+    // Delete recipe (cascade will handle related records)
+    await db.delete(recipes)
+      .where(eq(recipes.id, id))
+
+    // If recipe had an image, delete it from R2
+    if (recipeToDelete.imageUrl) {
+      const key = recipeToDelete.imageUrl.replace('/images/', '')
+      try {
+        await c.env.groceree_r2.delete(key)
+      } catch (error) {
+        console.error('Failed to delete image from R2:', error)
+      }
+    }
+
+    return c.json({ success: true })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Failed to delete recipe', error as Error)
+  }
+})
+
+
+// Upload recipe image
 recipe.post('/:id/image', async (c) => {
   const id = c.req.param('id')
   const db = drizzle(c.env.DB)
