@@ -10,16 +10,21 @@ const auth = new Hono<{ Bindings: Env }>()
 // Simple JWT secret (in production, use env variables)
 const JWT_SECRET = 'your-secret-key'
 
+function normalizeUsername(username: string): string {
+  return username.toLowerCase().trim()
+}
+
 auth.post('/register', async (c) => {
   const db = drizzle(c.env.DB)
 
   try {
     const body = await c.req.json<RegisterUserRequest>()
+    const normalizedUsername = normalizeUsername(body.username)
 
     // Check if username exists
     const existingUser = await db.select()
       .from(users)
-      .where(eq(users.username, body.username))
+      .where(eq(users.username, normalizedUsername))
       .get()
 
     if (existingUser) {
@@ -31,8 +36,8 @@ auth.post('/register', async (c) => {
       .values({
         firstName: body.firstName,
         lastName: body.lastName,
-        username: body.username,
-        password: body.password, // In production, hash this!
+        username: normalizedUsername,
+        password: body.password,
         imageUrl: "",
         bio: "Hi, I'm new here!",
       })
@@ -53,7 +58,7 @@ auth.post('/register', async (c) => {
 
 // Check username availability
 auth.get("/check-username/:username", async (c) => {
-  const username = c.req.param("username")
+  const username = normalizeUsername(c.req.param("username"))
   const db = drizzle(c.env.DB)
 
   try {
@@ -63,10 +68,19 @@ auth.get("/check-username/:username", async (c) => {
       .where(eq(users.username, username))
       .get()
 
+    if (existingUser) {
+      return c.json({
+        available: false,
+        username: username,
+        message: 'Username is already taken'
+      }, 409)
+    }
+
     return c.json({
-      available: !existingUser,
+      available: true,
       username: username,
-    })
+      message: 'Username is available'
+    }, 200)
   } catch (error) {
     throw new ApiError(500, 'Failed to check username availability', error as Error)
   }
@@ -77,6 +91,7 @@ auth.post('/login', async (c) => {
 
   try {
     const body = await c.req.json<LoginRequest>()
+    const normalizedUsername = normalizeUsername(body.username)
 
     const user = await db.select({
       id: users.id,
@@ -84,10 +99,10 @@ auth.post('/login', async (c) => {
       password: users.password,
     })
     .from(users)
-    .where(eq(users.username, body.username))
+    .where(eq(users.username, normalizedUsername))
     .get()
 
-    if (!user || user.password !== body.password) { // In production, use proper password comparison
+    if (!user || user.password !== body.password) {
       throw new ApiError(401, 'Invalid credentials')
     }
 
