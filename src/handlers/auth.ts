@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import { eq } from 'drizzle-orm'
 import { users } from '../db/schema'
 import { RegisterUserRequest, LoginRequest, AuthUser } from '../models/types'
+import { ApiError } from '../middleware/errorHandler'
 
 const auth = new Hono<{ Bindings: Env }>()
 
@@ -10,10 +11,11 @@ const auth = new Hono<{ Bindings: Env }>()
 const JWT_SECRET = 'your-secret-key'
 
 auth.post('/register', async (c) => {
-  const body = await c.req.json<RegisterUserRequest>()
   const db = drizzle(c.env.DB)
 
   try {
+    const body = await c.req.json<RegisterUserRequest>()
+
     // Check if username exists
     const existingUser = await db.select()
       .from(users)
@@ -21,7 +23,7 @@ auth.post('/register', async (c) => {
       .get()
 
     if (existingUser) {
-      return c.json({ error: 'Username already exists' }, 400)
+      throw new ApiError(400, 'Username already exists')
     }
 
     // Create user
@@ -44,15 +46,38 @@ auth.post('/register', async (c) => {
 
     return c.json({ token })
   } catch (error) {
-    return c.json({ error: 'Failed to create user' }, 500)
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Failed to create user', error as Error)
+  }
+})
+
+// Check username availability
+auth.get("/check-username/:username", async (c) => {
+  const username = c.req.param("username")
+  const db = drizzle(c.env.DB)
+
+  try {
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username))
+      .get()
+
+    return c.json({
+      available: !existingUser,
+      username: username,
+    })
+  } catch (error) {
+    throw new ApiError(500, 'Failed to check username availability', error as Error)
   }
 })
 
 auth.post('/login', async (c) => {
-  const body = await c.req.json<LoginRequest>()
   const db = drizzle(c.env.DB)
 
   try {
+    const body = await c.req.json<LoginRequest>()
+
     const user = await db.select({
       id: users.id,
       username: users.username,
@@ -63,7 +88,7 @@ auth.post('/login', async (c) => {
     .get()
 
     if (!user || user.password !== body.password) { // In production, use proper password comparison
-      return c.json({ error: 'Invalid credentials' }, 401)
+      throw new ApiError(401, 'Invalid credentials')
     }
 
     const token = await generateToken({
@@ -73,7 +98,8 @@ auth.post('/login', async (c) => {
 
     return c.json({ token })
   } catch (error) {
-    return c.json({ error: 'Login failed' }, 500)
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Login failed', error as Error)
   }
 })
 
@@ -88,17 +114,18 @@ export async function authMiddleware(c: any, next: () => Promise<void>) {
   const authHeader = c.req.header('Authorization')
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return c.json({ error: 'Unauthorized' }, 401)
+    throw new ApiError(401, 'Unauthorized')
   }
 
-  const token = authHeader.split(' ')[1]
   try {
+    const token = authHeader.split(' ')[1]
     // In production, use proper JWT verification
     const decoded = JSON.parse(atob(token)) as AuthUser
     c.set('user', decoded)
     await next()
-  } catch {
-    return c.json({ error: 'Invalid token' }, 401)
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(401, 'Invalid token', error as Error)
   }
 }
 
