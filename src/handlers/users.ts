@@ -10,6 +10,36 @@ const user = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 user.use('*', authMiddleware)
 
+// Get current user details
+user.get('/me', async (c) => {
+  const currentUser = c.get('user')
+  const db = drizzle(c.env.DB)
+
+  try {
+    const userDetails = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        username: users.username,
+        imageUrl: users.imageUrl,
+        bio: users.bio,
+      })
+      .from(users)
+      .where(eq(users.id, currentUser.id))
+      .get()
+
+    if (!userDetails) {
+      throw new ApiError(404, 'User not found')
+    }
+
+    return c.json({ user: userDetails })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Failed to fetch user details', error as Error)
+  }
+})
+
 // Get user details
 user.get('/:username', async (c) => {
   const username = c.req.param('username')
@@ -39,6 +69,7 @@ user.get('/:username', async (c) => {
     throw new ApiError(500, 'Failed to fetch user details', error as Error)
   }
 })
+
 
 // Update user profile
 user.put('/:username', async (c) => {
