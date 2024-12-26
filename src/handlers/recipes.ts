@@ -99,6 +99,73 @@ recipe.get('/', async (c) => {
   }
 })
 
+// Get current user's recipes
+recipe.get('/user/me', async (c) => {
+  const user = c.get('user')
+  const db = drizzle(c.env.DB)
+
+  try {
+    const userRecipes = await db
+      .select({
+        id: recipes.id,
+        name: recipes.name,
+        imageUrl: recipes.imageUrl,
+        duration: recipes.duration,
+        author: {
+          id: users.id,
+          firstName: users.firstName,
+        },
+        isFavorite: sql<boolean>`${userFavorites.userId} IS NOT NULL`
+      })
+      .from(recipes)
+      .innerJoin(users, eq(recipes.userId, users.id))
+      .leftJoin(userFavorites, and(
+        eq(recipes.id, userFavorites.recipeId),
+        eq(userFavorites.userId, user.id)
+      ))
+      .where(eq(recipes.userId, user.id))
+      .all()
+
+    return c.json({ recipes: userRecipes })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Failed to fetch user recipes', error as Error)
+  }
+})
+
+// Get current user's liked recipes
+recipe.get('/favorites/me', async (c) => {
+  const user = c.get('user')
+  const db = drizzle(c.env.DB)
+
+  try {
+    const favoriteRecipes = await db
+      .select({
+        id: recipes.id,
+        name: recipes.name,
+        imageUrl: recipes.imageUrl,
+        duration: recipes.duration,
+        isFavorite: sql<boolean>`true`,
+        author: {
+          id: users.id,
+          firstName: users.firstName,
+        }
+      })
+      .from(recipes)
+      .innerJoin(userFavorites, and(
+        eq(recipes.id, userFavorites.recipeId),
+        eq(userFavorites.userId, user.id)
+      ))
+      .innerJoin(users, eq(recipes.userId, users.id))
+      .all()
+
+    return c.json({ recipes: favoriteRecipes })
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(500, 'Failed to fetch favorite recipes', error as Error)
+  }
+})
+
 // Get single recipe
 recipe.get('/:id', async (c) => {
   const id = c.req.param('id')
