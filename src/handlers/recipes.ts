@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { drizzle } from 'drizzle-orm/d1'
-import { eq, and, sql } from 'drizzle-orm'
+import { eq, and, sql, is } from 'drizzle-orm'
 import { recipes, ingredients, instructions, userFavorites, users } from '../db/schema'
 import { CreateRecipeRequest, Recipe, RecipeListItem } from '../models/types'
 import { authMiddleware } from './auth'
@@ -36,10 +36,9 @@ recipe.post('/', async (c) => {
       .returning({
         id: recipes.id,
         name: recipes.name,
+        imageUrl: recipes.imageUrl,
         duration: recipes.duration,
-        servings: recipes.servings,
-        userId: recipes.userId,
-        imageUrl: recipes.imageUrl
+        isFavorite: sql<boolean>`false`
       })
 
     if (body.ingredients.length > 0) {
