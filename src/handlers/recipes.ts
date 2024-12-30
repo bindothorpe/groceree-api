@@ -80,7 +80,7 @@ recipe.get('/', async (c) => {
       name: recipes.name,
       imageUrl: recipes.imageUrl,
       duration: recipes.duration,
-      isFavorite: sql<boolean>`${userFavorites.userId} IS NOT NULL`
+      isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`
     })
     .from(recipes)
     .leftJoin(userFavorites, and(
@@ -114,7 +114,7 @@ recipe.get('/user/me', async (c) => {
           id: users.id,
           firstName: users.firstName,
         },
-        isFavorite: sql<boolean>`${userFavorites.userId} IS NOT NULL`
+        isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`
       })
       .from(recipes)
       .innerJoin(users, eq(recipes.userId, users.id))
@@ -144,7 +144,7 @@ recipe.get('/favorites/me', async (c) => {
         name: recipes.name,
         imageUrl: recipes.imageUrl,
         duration: recipes.duration,
-        isFavorite: sql<boolean>`true`,
+        isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`,
         author: {
           id: users.id,
           firstName: users.firstName,
@@ -182,7 +182,7 @@ recipe.get('/:id', async (c) => {
         id: users.id,
         firstName: users.firstName,
       },
-      isFavorite: sql<boolean>`${userFavorites.userId} IS NOT NULL`
+      isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`
     })
     .from(recipes)
     .leftJoin(userFavorites, and(
@@ -285,7 +285,7 @@ recipe.get('/user/:username', async (c) => {
           id: users.id,
           firstName: users.firstName,
         },
-        isFavorite: sql<boolean>`${userFavorites.userId} IS NOT NULL`
+        isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`
       })
       .from(recipes)
       .innerJoin(users, and(
