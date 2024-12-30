@@ -410,9 +410,15 @@ recipe.put('/:id', async (c) => {
         })))
     }
 
-    return c.json({ 
-      success: true,
-      recipe: updatedRecipe
+    return c.json({
+      recipe: {
+        id: updatedRecipe.id,
+        name: updatedRecipe.name,
+        imageUrl: updatedRecipe.imageUrl,
+        duration: updatedRecipe.duration,
+        isFavorite: false
+
+      }
     })
   } catch (error) {
     if (error instanceof ApiError) throw error
