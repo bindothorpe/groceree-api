@@ -242,7 +242,7 @@ recipe.get('/favorites/:username', async (c) => {
         name: recipes.name,
         imageUrl: recipes.imageUrl,
         duration: recipes.duration,
-        isFavorite: sql<boolean>`true`, // Since we're only getting favorites
+        isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`,
         author: {
           id: users.username,
           firstName: users.firstName,
@@ -416,7 +416,7 @@ recipe.put('/:id', async (c) => {
         name: updatedRecipe.name,
         imageUrl: updatedRecipe.imageUrl,
         duration: updatedRecipe.duration,
-        isFavorite: false
+        isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`
 
       }
     })
