@@ -111,7 +111,7 @@ recipe.get('/user/me', async (c) => {
         imageUrl: recipes.imageUrl,
         duration: recipes.duration,
         author: {
-          id: users.id,
+          id: users.username,
           firstName: users.firstName,
         },
         isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`
@@ -146,7 +146,7 @@ recipe.get('/favorites/me', async (c) => {
         duration: recipes.duration,
         isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`,
         author: {
-          id: users.id,
+          id: users.username,
           firstName: users.firstName,
         }
       })
@@ -179,7 +179,7 @@ recipe.get('/:id', async (c) => {
       duration: recipes.duration,
       servings: recipes.servings,
       author: {
-        id: users.id,
+        id: users.username,
         firstName: users.firstName,
       },
       isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`
@@ -244,7 +244,7 @@ recipe.get('/favorites/:username', async (c) => {
         duration: recipes.duration,
         isFavorite: sql<boolean>`true`, // Since we're only getting favorites
         author: {
-          id: users.id,
+          id: users.username,
           firstName: users.firstName,
         }
       })
@@ -282,7 +282,7 @@ recipe.get('/user/:username', async (c) => {
         imageUrl: recipes.imageUrl,
         duration: recipes.duration,
         author: {
-          id: users.id,
+          id: users.username,
           firstName: users.firstName,
         },
         isFavorite: sql`CASE WHEN ${userFavorites.userId} IS NOT NULL THEN true ELSE false END`
