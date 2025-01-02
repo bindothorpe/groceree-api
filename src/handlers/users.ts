@@ -72,16 +72,9 @@ user.get('/:username', async (c) => {
 
 
 // Update user profile
-user.put('/:username', async (c) => {
-    const username = c.req.param('username')
-    const currentUser = c.get('user')
+user.put('/', async (c) => {
+  const currentUser = c.get('user')
     const db = drizzle(c.env.DB)
-  
-    // Check if user is updating their own profile
-    if (username !== currentUser.username) {
-      throw new ApiError(403, 'You can only update your own profile')
-    }
-  
     try {
       const body = await c.req.json<{
         firstName: string
@@ -96,7 +89,7 @@ user.put('/:username', async (c) => {
           lastName: body.lastName,
           bio: body.bio,
         })
-        .where(eq(users.username, username))
+        .where(eq(users.id, currentUser.id))
         .returning({
           id: users.id,
           firstName: users.firstName,
