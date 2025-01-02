@@ -416,7 +416,7 @@ recipe.put('/:id', async (c) => {
         name: updatedRecipe.name,
         imageUrl: updatedRecipe.imageUrl,
         duration: updatedRecipe.duration,
-        isFavorite: sql<boolean>`false`
+        isFavorite: 0
 
       }
     })
