@@ -111,15 +111,9 @@ user.put('/', async (c) => {
   })
 
   // Update profile image
-user.post('/:username/image', async (c) => {
-    const username = c.req.param('username')
+user.post('/image', async (c) => {
     const currentUser = c.get('user')
     const db = drizzle(c.env.DB)
-  
-    // Check if user is updating their own profile image
-    if (username !== currentUser.username) {
-      throw new ApiError(403, 'You can only update your own profile image')
-    }
   
     try {
       // Validate request content type
@@ -147,7 +141,7 @@ user.post('/:username/image', async (c) => {
       }
   
       // Upload to R2
-      const key = `images/users/${username}-${Date.now()}`
+      const key = `images/users/${currentUser.username}-${Date.now()}`
       await c.env.groceree_r2.put(key, image, {
         httpMetadata: {
           contentType: image.type,
@@ -159,7 +153,7 @@ user.post('/:username/image', async (c) => {
         imageUrl: users.imageUrl
       })
       .from(users)
-      .where(eq(users.username, username))
+      .where(eq(users.username, currentUser.username))
       .get()
   
       if (user?.imageUrl) {
@@ -176,7 +170,7 @@ user.post('/:username/image', async (c) => {
         .set({
           imageUrl: `/${key}`
         })
-        .where(eq(users.username, username))
+        .where(eq(users.username, currentUser.username))
         .returning({
           id: users.id,
           firstName: users.firstName,
